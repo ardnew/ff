@@ -39,20 +39,28 @@ func parse(fs Flags, args []string, options ...Option) error {
 	}
 
 	// Index valid flags by env var key, to support .env config files (below).
-	env2flag := map[string]Flag{}
+	envflag := map[string]Flag{}
 	{
 		if err := fs.WalkFlags(func(f Flag) error {
-			for _, name := range getNameStrings(f) {
-				key := getEnvVarKey(name, pc.envVarPrefix)
-				if existing, ok := env2flag[key]; ok {
-					return fmt.Errorf("%s: %w (%s)", getNameString(f), ErrDuplicateFlag, getNameString(existing))
-				}
-				env2flag[key] = f
+			name := getNameString(f)
+			key := getEnvVarKey(name, pc.envVarPrefix)
+			if existing, ok := envflag[key]; ok {
+				return fmt.Errorf("%s: %w (%s)", name, ErrDuplicateFlag, getNameString(existing))
 			}
+			envflag[key] = f
 			return nil
 		}); err != nil {
 			return err
 		}
+	}
+	env2flag := func(name string) (Flag, bool) {
+		for key, val := range envflag {
+			short, long, ok := strings.Cut(key, ", ")
+			if ok && long == name || short == name {
+				return val, true
+			}
+		}
+		return nil, false
 	}
 
 	// After each stage of parsing, record the flags that have been provided.
@@ -158,7 +166,7 @@ func parse(fs Flags, args []string, options ...Option) error {
 					// env var representation (to support .env files).
 					var (
 						setFlag, fromSet = fs.GetFlag(name)
-						envFlag, fromEnv = env2flag[name]
+						envFlag, fromEnv = env2flag(name)
 						target           Flag
 					)
 					switch {
