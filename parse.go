@@ -43,11 +43,10 @@ func parse(fs Flags, args []string, options ...Option) error {
 	{
 		if err := fs.WalkFlags(func(f Flag) error {
 			name := getNameString(f)
-			key := getEnvVarKey(name, pc.envVarPrefix)
-			if existing, ok := envflag[key]; ok {
+			if existing, ok := envflag[name]; ok {
 				return fmt.Errorf("%s: %w (%s)", name, ErrDuplicateFlag, getNameString(existing))
 			}
-			envflag[key] = f
+			envflag[name] = f
 			return nil
 		}); err != nil {
 			return err
@@ -56,7 +55,10 @@ func parse(fs Flags, args []string, options ...Option) error {
 	env2flag := func(name string) (Flag, bool) {
 		for key, val := range envflag {
 			short, long, ok := strings.Cut(key, ", ")
-			if ok && long == name || short == name {
+			if ok && long == name {
+				return val, true
+			}
+			if !pc.envIgnoreShortVarNames && short == name {
 				return val, true
 			}
 		}
@@ -93,8 +95,14 @@ func parse(fs Flags, args []string, options ...Option) error {
 					return nil
 				}
 
-				// Look in the environment for each of the flag names.
-				for _, name := range getNameStrings(f) {
+				// Build the list of environment variable names to check.
+				names := getNameStrings(f)
+				if pc.envIgnoreShortVarNames {
+					names = names[1:] // skip the short name
+				}
+				
+				// Look in the environment for each of the allowed flag names.
+				for _, name := range names {
 					// Transform the flag name to an env var key.
 					key := getEnvVarKey(name, pc.envVarPrefix)
 

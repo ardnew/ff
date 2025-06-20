@@ -20,6 +20,7 @@ type ParseContext struct {
 	configOpenFunc             func(string) (iofs.File, error)
 	configAllowMissingFile     bool
 	configIgnoreUndefinedFlags bool
+	envIgnoreShortVarNames     bool
 }
 
 // ConfigFileParseFunc is a function that consumes the provided reader as a config
@@ -78,6 +79,21 @@ func WithConfigAllowMissingFile() Option {
 func WithConfigIgnoreUndefinedFlags() Option {
 	return func(pc *ParseContext) {
 		pc.configIgnoreUndefinedFlags = true
+	}
+}
+
+// WithEnvIgnoreShortVarNames tells [Parse] to only consider a flag's long
+// name when matching it to environment variables. This option does not affect
+// config files.
+//
+// This helps to prevent conflicts when using flags with case-sensitive short
+// names, such as "-v, --verbose" and "-V, --version".
+//
+// Normally, the uppercase-form of both the short and long names of a flag are
+// considered when looking up environment variables.
+func WithEnvIgnoreShortVarNames() Option {
+	return func(pc *ParseContext) {
+		pc.envIgnoreShortVarNames = true
 	}
 }
 
